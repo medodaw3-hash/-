@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM — نظام إدارة الأداء اللوجستي</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#070c18;--c1:#0f1729;--c2:#141e35;--c3:#1a2744;--c4:#213356;
+  --bdr:#1c2d50;--bdr2:#2a3d65;
+  --t1:#f0f4f8;--t2:#94a8cc;--t3:#5a6f94;
+  --grn:#22c55e;--grn2:rgba(34,197,94,.12);
+  --red:#f43f5e;--red2:rgba(244,63,94,.12);
+  --amb:#eab308;--amb2:rgba(234,179,8,.12);
+  --blu:#3b82f6;--blu2:rgba(59,130,246,.12);
+  --pur:#a855f7;--pur2:rgba(168,85,247,.12);
+}
+body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--t1);line-height:1.5;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle at 20% 0%,rgba(59,130,246,.08),transparent 40%),radial-gradient(circle at 80% 100%,rgba(168,85,247,.06),transparent 40%);z-index:0;pointer-events:none}
+
+/* ===== LOGIN SCREEN ===== */
+.login-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:1000;background:var(--bg);padding:20px}
+.login-screen::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 50%,rgba(59,130,246,.15),transparent 50%),radial-gradient(circle at 70% 50%,rgba(168,85,247,.1),transparent 50%);z-index:0}
+.login-box{position:relative;z-index:1;background:var(--c1);border:1px solid var(--bdr);border-radius:20px;padding:40px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.login-box .logo{width:70px;height:70px;border-radius:16px;background:linear-gradient(135deg,#3b82f6,#a855f7);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 20px}
+.login-box h1{text-align:center;font-size:1.3rem;font-weight:900;margin-bottom:6px;background:linear-gradient(to left,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.login-box .sub{text-align:center;color:var(--t3);font-size:.78rem;margin-bottom:28px}
+.login-box label{display:block;font-size:.76rem;color:var(--t3);margin-bottom:8px;font-weight:700}
+.login-box input{width:100%;padding:14px 16px;background:var(--c2);border:1px solid var(--bdr);border-radius:10px;color:var(--t1);font-family:inherit;font-size:.95rem;outline:none;transition:.2s;direction:ltr;text-align:center;letter-spacing:2px}
+.login-box input:focus{border-color:var(--blu);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.login-box .login-btn{width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:.9rem;font-weight:800;cursor:pointer;margin-top:16px;transition:.2s}
+.login-box .login-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(59,130,246,.4)}
+.login-err{background:var(--red2);border:1px solid rgba(244,63,94,.3);color:var(--red);padding:10px 14px;border-radius:8px;font-size:.78rem;margin-top:12px;text-align:center;display:none}
+.login-err.on{display:block}
+.login-setup{margin-top:20px;padding-top:20px;border-top:1px solid var(--bdr);text-align:center;font-size:.74rem;color:var(--t3)}
+.login-setup a{color:var(--blu);cursor:pointer;text-decoration:none}
+.login-setup a:hover{text-decoration:underline}
+
+/* ===== MAIN APP ===== */
+.app{position:relative;z-index:1;max-width:1500px;margin:0 auto;padding:16px;display:none}
+.app.on{display:block}
+
+.hdr{background:linear-gradient(135deg,var(--c1),var(--c2));border:1px solid var(--bdr);border-radius:16px;padding:22px 28px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.hdr-l h1{font-size:1.5rem;font-weight:900;background:linear-gradient(to left,#60a5fa,#a78bfa,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.hdr-l .sub{color:var(--t3);font-size:.78rem}
+.hdr-r{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.periods-count{padding:8px 14px;background:var(--pur2);border:1px solid rgba(168,85,247,.3);border-radius:10px;font-size:.78rem;color:var(--pur);font-weight:700}
+.sync-status{padding:6px 12px;background:var(--c2);border:1px solid var(--bdr);border-radius:8px;font-size:.7rem;color:var(--t3);display:flex;align-items:center;gap:5px}
+.sync-status.ok{color:var(--grn);border-color:rgba(34,197,94,.3)}
+.sync-status.err{color:var(--red);border-color:rgba(244,63,94,.3)}
+.sync-status.syncing{color:var(--amb)}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.sync-status.syncing .sync-dot{animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.upload-zone{background:var(--c1);border:2px dashed var(--bdr2);border-radius:14px;padding:20px 24px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;transition:.2s}
+.upload-zone:hover{border-color:var(--blu);background:var(--c2)}
+.upload-zone.drag{border-color:var(--grn);background:rgba(34,197,94,.05)}
+.up-icon{width:44px;height:44px;border-radius:12px;background:var(--blu2);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0}
+.up-info{flex:1;min-width:180px}
+.up-info .t{font-weight:800;font-size:.95rem;margin-bottom:2px}
+.up-info .s{font-size:.76rem;color:var(--t3)}
+.up-input{display:none}
+.btn{padding:10px 18px;border-radius:10px;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;border:none;transition:.15s;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(59,130,246,.3)}
+.btn-ghost{background:var(--c2);color:var(--t2);border:1px solid var(--bdr)}
+.btn-ghost:hover{background:var(--c3);color:var(--t1)}
+.btn-danger{background:var(--red2);color:var(--red);border:1px solid rgba(244,63,94,.2)}
+.btn-danger:hover{background:rgba(244,63,94,.2)}
+.btn-sm{padding:6px 12px;font-size:.74rem}
+
+.tabs{display:flex;gap:0;margin-bottom:16px;background:var(--c1);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;overflow-x:auto}
+.tab{flex:1;min-width:130px;padding:13px 16px;text-align:center;font-weight:700;font-size:.82rem;cursor:pointer;color:var(--t3);transition:.15s;border-left:1px solid var(--bdr);white-space:nowrap}
+.tab:first-child{border-left:none}
+.tab:hover{background:var(--c2);color:var(--t2)}
+.tab.on{background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff}
+
+.panel{display:none}
+.panel.on{display:block}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.kpi{background:var(--c1);border:1px solid var(--bdr);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;right:0;width:60px;height:60px;border-radius:50%;opacity:.08;background:var(--kc,#3b82f6)}
+.kpi .kl{font-size:.7rem;color:var(--t3);margin-bottom:2px;font-weight:600}
+.kpi .kv{font-size:1.5rem;font-weight:900;color:var(--kc,var(--t1))}
+.kpi .ks{font-size:.7rem;color:var(--t3)}
+
+.period-sel{display:flex;gap:8px;margin-bottom:14px;background:var(--c1);border:1px solid var(--bdr);border-radius:12px;padding:8px;flex-wrap:wrap;align-items:center}
+.period-lbl{padding:0 10px;font-size:.75rem;color:var(--t3);font-weight:700}
+.period-chip{padding:7px 14px;background:var(--c2);border:1px solid var(--bdr);border-radius:8px;font-size:.76rem;color:var(--t2);cursor:pointer;transition:.15s;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.period-chip:hover{background:var(--c3);color:var(--t1)}
+.period-chip.on{background:linear-gradient(135deg,#2563eb,#3b82f6);border-color:transparent;color:#fff}
+.period-chip .x{opacity:.5;font-size:.9rem;line-height:1;cursor:pointer}
+.period-chip .x:hover{opacity:1}
+.period-chip .edit{opacity:.4;font-size:.75rem;cursor:pointer}
+.period-chip .edit:hover{opacity:1}
+
+.bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.srch{flex:1;min-width:220px;padding:11px 16px;background:var(--c1);border:1px solid var(--bdr);border-radius:10px;color:var(--t1);font-family:inherit;font-size:.84rem;outline:none;transition:.2s}
+.srch:focus{border-color:var(--blu);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.sel{padding:10px 14px;background:var(--c1);border:1px solid var(--bdr);border-radius:10px;color:var(--t1);font-family:inherit;font-size:.78rem;cursor:pointer;outline:none}
+.cnt{padding:8px 14px;background:var(--blu2);border-radius:8px;font-size:.74rem;color:var(--blu);font-weight:700;white-space:nowrap}
+
+.br-card{background:var(--c1);border:1px solid var(--bdr);border-radius:12px;margin-bottom:8px;overflow:hidden;transition:.15s}
+.br-card:hover{border-color:rgba(59,130,246,.25)}
+.br-top{padding:14px 18px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:.1s}
+.br-top:hover{background:var(--c2)}
+.br-info{display:flex;align-items:center;gap:10px;flex:1;min-width:0;flex-wrap:wrap}
+.br-name{font-weight:800;font-size:.92rem}
+.br-tags{display:flex;gap:6px;flex-wrap:wrap}
+.br-right{display:flex;align-items:center;gap:16px;flex-shrink:0}
+.br-stat{text-align:center}
+.br-stat .sv{font-size:1rem;font-weight:900}
+.br-stat .sl{font-size:.6rem;color:var(--t3)}
+.chev{color:var(--t3);transition:.2s;font-size:.8rem}
+.br-card.open .chev{transform:rotate(180deg)}
+.br-body{display:none;border-top:1px solid var(--bdr)}
+.br-card.open .br-body{display:block}
+
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+thead th{padding:10px 12px;text-align:right;font-size:.68rem;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.3px;background:rgba(0,0,0,.2);white-space:nowrap}
+tbody td{padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.02);white-space:nowrap}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+.tw{background:var(--c1);border:1px solid var(--bdr);border-radius:12px;overflow:hidden}
+.tw .scroll{max-height:72vh;overflow-y:auto}
+
+.tg{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.68rem;font-weight:700}
+.tg-g{background:var(--grn2);color:var(--grn)}.tg-r{background:var(--red2);color:var(--red)}.tg-a{background:var(--amb2);color:var(--amb)}.tg-b{background:var(--blu2);color:var(--blu)}
+.pb{display:flex;align-items:center;gap:6px}
+.pb-bar{width:64px;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden}
+.pb-fill{height:100%;border-radius:3px}
+.pb-val{font-weight:800;font-size:.76rem;min-width:36px}
+
+.rank{font-weight:900;color:var(--t3);font-size:.75rem}
+.rank-1{color:#fbbf24}.rank-2{color:#94a3b8}.rank-3{color:#d97706}
+
+.cmp-sel{background:var(--c1);border:1px solid var(--bdr);border-radius:14px;padding:18px;margin-bottom:16px}
+.cmp-title{font-size:.85rem;font-weight:800;margin-bottom:12px;color:var(--t2)}
+.cmp-picks{display:grid;grid-template-columns:1fr 40px 1fr;gap:12px;align-items:center}
+.cmp-pick{background:var(--c2);border:1px solid var(--bdr);border-radius:10px;padding:14px}
+.cmp-pick label{display:block;font-size:.7rem;color:var(--t3);margin-bottom:6px;font-weight:700}
+.cmp-pick select{width:100%;padding:10px 12px;background:var(--c1);border:1px solid var(--bdr);border-radius:8px;color:var(--t1);font-family:inherit;font-size:.82rem;outline:none;cursor:pointer}
+.cmp-vs{text-align:center;font-size:1.5rem;font-weight:900;color:var(--pur)}
+
+.cmp-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.cmp-box{background:var(--c1);border:1px solid var(--bdr);border-radius:12px;padding:14px}
+.cmp-box .l{font-size:.7rem;color:var(--t3);margin-bottom:4px}
+.cmp-box .vals{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+.cmp-box .v1{font-size:.9rem;color:var(--t3);font-weight:700}
+.cmp-box .arrow{color:var(--t3);font-size:.7rem}
+.cmp-box .v2{font-size:1.3rem;font-weight:900}
+.cmp-box .diff{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.7rem;font-weight:800}
+.diff-up{background:var(--grn2);color:var(--grn)}
+.diff-down{background:var(--red2);color:var(--red)}
+.diff-same{background:var(--c3);color:var(--t3)}
+
+.chart-box{background:var(--c1);border:1px solid var(--bdr);border-radius:12px;padding:16px;margin-bottom:16px;height:320px}
+.chart-box h3{font-size:.85rem;font-weight:800;margin-bottom:10px;color:var(--t2)}
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-bg.on{display:flex}
+.modal{background:var(--c1);border:1px solid var(--bdr);border-radius:16px;padding:24px;max-width:420px;width:100%}
+.modal h2{font-size:1.1rem;margin-bottom:16px}
+.modal label{display:block;font-size:.75rem;color:var(--t3);margin-bottom:6px;margin-top:10px}
+.modal input{width:100%;padding:11px 14px;background:var(--c2);border:1px solid var(--bdr);border-radius:8px;color:var(--t1);font-family:inherit;outline:none;font-size:.85rem}
+.modal input:focus{border-color:var(--blu)}
+.modal-btns{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+.modal .note{background:var(--blu2);border:1px solid rgba(59,130,246,.2);padding:10px 14px;border-radius:8px;font-size:.78rem;color:var(--t2);margin-top:12px;line-height:1.7}
+.modal .note a{color:var(--blu)}
+
+.empty-state{text-align:center;padding:60px 20px;color:var(--t3)}
+.empty-state .ico{font-size:3rem;opacity:.4;margin-bottom:14px}
+.empty-state h3{font-size:1.1rem;margin-bottom:8px;color:var(--t2)}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--c3);border:1px solid var(--bdr2);border-radius:10px;padding:12px 18px;font-size:.82rem;z-index:200;opacity:0;transform:translateY(10px);transition:.3s;pointer-events:none}
+.toast.on{opacity:1;transform:translateY(0)}
+.toast.ok{border-color:var(--grn);color:var(--grn)}
+.toast.err{border-color:var(--red);color:var(--red)}
+
+@media(max-width:800px){
+  .kpis,.cmp-summary{grid-template-columns:repeat(2,1fr)}
+  .charts-row{grid-template-columns:1fr}
+  .cmp-picks{grid-template-columns:1fr}
+  .cmp-vs{display:none}
+  .br-right{display:none}
+  .hdr{padding:16px}
+  .hdr-l h1{font-size:1.2rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN SCREEN ============ -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <div class="logo">🔐</div>
+    <h1>نظام CRM</h1>
+    <div class="sub">أدخل كلمة السر للدخول</div>
+    <label>كلمة السر</label>
+    <input type="password" id="pwdInput" placeholder="••••••••" autocomplete="current-password">
+    <button class="login-btn" onclick="tryLogin()">دخول</button>
+    <div class="login-err" id="loginErr">❌ كلمة سر غير صحيحة</div>
+    <div class="login-setup">
+      <a onclick="showSetup()">⚙️ إعدادات المزامنة والسر (أول مرة)</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SETUP MODAL ============ -->
+<div class="modal-bg" id="setupModal">
+  <div class="modal" style="max-width:500px">
+    <h2>⚙️ الإعدادات</h2>
+
+    <label>كلمة السر الجديدة</label>
+    <input type="text" id="newPwd" placeholder="اكتب كلمة سر قوية">
+
+    <label>🌐 مفتاح المزامنة السحابية (JSONBin.io)</label>
+    <input type="text" id="binKey" placeholder="X-Master-Key">
+    <input type="text" id="binId" placeholder="Bin ID (اتركه فارغاً لأول مرة)" style="margin-top:8px">
+
+    <div class="note">
+      <strong>كيف تحصل على المفتاح مجاناً:</strong><br>
+      1. ادخل على <a href="https://jsonbin.io" target="_blank">jsonbin.io</a> وسجل بحساب Google<br>
+      2. من الحساب → API Keys → انسخ X-MASTER-KEY<br>
+      3. الصقه هنا واضغط حفظ<br>
+      4. عند أول رفع ملف، سيتم إنشاء Bin ID تلقائياً
+    </div>
+
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeSetup()">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveSetup()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div class="app" id="mainApp">
+
+<div class="hdr">
+  <div class="hdr-l">
+    <h1>📊 نظام CRM — إدارة الأداء اللوجستي</h1>
+    <div class="sub">تتبع — تحليل — مقارنة — مزامنة سحابية</div>
+  </div>
+  <div class="hdr-r">
+    <span class="sync-status" id="syncStatus"><span class="sync-dot"></span><span id="syncText">غير متزامن</span></span>
+    <span class="periods-count" id="periodsCount">0 فترة</span>
+    <button class="btn btn-ghost btn-sm" onclick="syncNow()">🔄 تحديث</button>
+    <button class="btn btn-ghost btn-sm" onclick="showSetup()">⚙️</button>
+    <button class="btn btn-ghost btn-sm" onclick="logout()">🚪 خروج</button>
+  </div>
+</div>
+
+<div class="upload-zone" id="uploadZone">
+  <div class="up-icon">📤</div>
+  <div class="up-info">
+    <div class="t">رفع ملف شحنات جديد</div>
+    <div class="s">اسحب ملف .xlsx هنا أو اضغط زر الرفع — سيتم تحليله ورفعه للسحابة تلقائياً</div>
+  </div>
+  <button class="btn btn-primary" onclick="document.getElementById('xlsxInput').click()">اختيار ملف</button>
+  <input type="file" id="xlsxInput" class="up-input" accept=".xlsx,.xls">
+</div>
+
+<div class="tabs">
+  <div class="tab on" onclick="showTab(0)">📈 لوحة الأداء</div>
+  <div class="tab" onclick="showTab(1)">🏢 الفروع والمناديب</div>
+  <div class="tab" onclick="showTab(2)">🏪 المتاجر</div>
+  <div class="tab" onclick="showTab(3)">🔄 المقارنة</div>
+  <div class="tab" onclick="showTab(4)">📅 الأرشيف</div>
+</div>
+
+<div class="period-sel" id="periodSel"></div>
+
+<div class="panel on" id="p0"><div id="overviewContent"></div></div>
+
+<div class="panel" id="p1">
+  <div class="bar">
+    <input class="srch" id="s1" placeholder="🔍 ابحث في الفروع والمناديب...">
+    <select class="sel" id="sort1">
+      <option value="t">الأكثر شحنات</option>
+      <option value="dp_desc">أعلى تسليم</option>
+      <option value="dp_asc">أدنى تسليم</option>
+      <option value="rp">أعلى مرتجع</option>
+    </select>
+    <div class="cnt" id="c1"></div>
+  </div>
+  <div id="blist"></div>
+</div>
+
+<div class="panel" id="p2">
+  <div class="bar">
+    <input class="srch" id="s2" placeholder="🔍 ابحث عن متجر...">
+    <select class="sel" id="sort2">
+      <option value="t">الأكثر شحنات</option>
+      <option value="dp">أعلى تسليم</option>
+      <option value="rp">أعلى مرتجع</option>
+      <option value="dp_asc">أدنى تسليم</option>
+    </select>
+    <select class="sel" id="filt2">
+      <option value="">كل المتاجر</option>
+      <option value="hi">ممتاز ≥70%</option>
+      <option value="md">متوسط 40-69%</option>
+      <option value="lo">ضعيف &lt;40%</option>
+    </select>
+    <div class="cnt" id="c2"></div>
+  </div>
+  <div class="tw"><div class="scroll">
+    <table><thead><tr><th>#</th><th>المتجر</th><th>الكود</th><th>إجمالي</th><th>مسلّم</th><th>مرتجع</th><th>% تسليم</th><th>% مرتجع</th><th>تقييم</th></tr></thead>
+    <tbody id="stbl"></tbody></table>
+  </div></div>
+</div>
+
+<div class="panel" id="p3">
+  <div class="cmp-sel">
+    <div class="cmp-title">🔄 اختر فترتين للمقارنة</div>
+    <div class="cmp-picks">
+      <div class="cmp-pick"><label>الفترة الأولى (القديمة)</label><select id="cmpA"></select></div>
+      <div class="cmp-vs">⇄</div>
+      <div class="cmp-pick"><label>الفترة الثانية (الأحدث)</label><select id="cmpB"></select></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="exportComparisonPDF()">📄 تصدير PDF</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportComparisonExcel()">📊 تصدير Excel</button>
+    </div>
+  </div>
+  <div id="cmpContent"></div>
+</div>
+
+<div class="panel" id="p4">
+  <div style="background:var(--c1);border:1px solid var(--bdr);border-radius:12px;padding:16px;margin-bottom:14px">
+    <h3 style="font-size:.9rem;margin-bottom:10px">📈 تطور الأداء عبر الفترات</h3>
+    <div class="chart-box" style="margin:0"><canvas id="trendChart"></canvas></div>
+  </div>
+  <div class="tw"><div class="scroll">
+    <table><thead><tr><th>#</th><th>اسم الفترة</th><th>التاريخ</th><th>إجمالي</th><th>% تسليم</th><th>% مرتجع</th><th>فروع</th><th>مناديب</th><th>متاجر</th><th>إجراءات</th></tr></thead>
+    <tbody id="archiveTbl"></tbody></table>
+  </div></div>
+</div>
+
+</div>
+
+<!-- Rename Modal -->
+<div class="modal-bg" id="renameModal">
+  <div class="modal">
+    <h2>✏️ تعديل بيانات الفترة</h2>
+    <label>اسم الفترة</label>
+    <input type="text" id="renameInput">
+    <label>التاريخ</label>
+    <input type="date" id="dateInput">
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeRename()">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveRename()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== STATE ====================
+let DB = { periods: [], activeId: null };
+let CONFIG = { pwd: '', binKey: '', binId: '' };
+let renamingId = null;
+let trendChartInstance = null;
+let cmpCharts = [];
+let activeTab = 0;
+let syncTimer = null;
+
+// ==================== UTILITIES ====================
+function toast(msg, type='ok'){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast on ' + type;
+  setTimeout(() => t.classList.remove('on'), 2800);
+}
+
+function pc(p){return p>=60?'var(--grn)':p>=40?'var(--amb)':'var(--red)'}
+function tg(p){const c=p>=60?'g':p>=40?'a':'r';return `<span class="tg tg-${c}">${p}%</span>`}
+function rtg(p){const c=p<=15?'g':p<=35?'a':'r';return `<span class="tg tg-${c}">${p}%</span>`}
+function rat(p){return p>=60?'<span class="tg tg-g">ممتاز</span>':p>=40?'<span class="tg tg-a">مقبول</span>':'<span class="tg tg-r">ضعيف</span>'}
+function bar(p){const c=pc(p);return `<div class="pb"><div class="pb-bar"><div class="pb-fill" style="width:${Math.min(p,100)}%;background:${c}"></div></div><span class="pb-val" style="color:${c}">${p}%</span></div>`}
+function diffBadge(oldV, newV, inv=false){
+  const d = (newV - oldV).toFixed(1);
+  if(Math.abs(d) < 0.05) return `<span class="diff diff-same">=</span>`;
+  const up = d > 0;
+  const cls = inv ? (up ? 'diff-down' : 'diff-up') : (up ? 'diff-up' : 'diff-down');
+  return `<span class="diff ${cls}">${up?'▲':'▼'} ${Math.abs(d)}</span>`;
+}
+function emptyState(title, desc){
+  return `<div class="empty-state"><div class="ico">📊</div><h3>${title}</h3><p>${desc}</p></div>`;
+}
+
+// ==================== CONFIG & AUTH ====================
+function loadConfig(){
+  const s = localStorage.getItem('crm_config_v1');
+  if(s){ try { CONFIG = JSON.parse(s); } catch(e){} }
+}
+function saveConfig(){ localStorage.setItem('crm_config_v1', JSON.stringify(CONFIG)); }
+
+function hashPwd(p){
+  let h = 0;
+  for(let i = 0; i < p.length; i++){
+    h = ((h << 5) - h) + p.charCodeAt(i);
+    h = h & h;
+  }
+  return h.toString(16);
+}
+
+function showSetup(){
+  document.getElementById('newPwd').value = '';
+  document.getElementById('binKey').value = CONFIG.binKey || '';
+  document.getElementById('binId').value = CONFIG.binId || '';
+  document.getElementById('setupModal').classList.add('on');
+}
+function closeSetup(){ document.getElementById('setupModal').classList.remove('on'); }
+
+function saveSetup(){
+  const pwd = document.getElementById('newPwd').value.trim();
+  const binKey = document.getElementById('binKey').value.trim();
+  const binId = document.getElementById('binId').value.trim();
+
+  if(pwd) CONFIG.pwd = hashPwd(pwd);
+  CONFIG.binKey = binKey;
+  CONFIG.binId = binId;
+  saveConfig();
+  closeSetup();
+  toast('✅ تم حفظ الإعدادات');
+}
+
+function tryLogin(){
+  const p = document.getElementById('pwdInput').value;
+  if(!CONFIG.pwd){
+    // First time - prompt to set up
+    document.getElementById('loginErr').classList.add('on');
+    document.getElementById('loginErr').textContent = 'لم يتم إعداد كلمة سر بعد. اضغط "إعدادات المزامنة والسر"';
+    return;
+  }
+  if(hashPwd(p) === CONFIG.pwd){
+    sessionStorage.setItem('crm_auth', '1');
+    enterApp();
+  } else {
+    document.getElementById('loginErr').classList.add('on');
+    document.getElementById('loginErr').textContent = '❌ كلمة سر غير صحيحة';
+  }
+}
+
+document.getElementById('pwdInput').addEventListener('keypress', e => {
+  if(e.key === 'Enter') tryLogin();
+});
+
+function logout(){
+  sessionStorage.removeItem('crm_auth');
+  location.reload();
+}
+
+function enterApp(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').classList.add('on');
+  syncFromCloud();
+}
+
+// ==================== CLOUD SYNC (JSONBin.io) ====================
+function setSyncStatus(status, text){
+  const el = document.getElementById('syncStatus');
+  const t = document.getElementById('syncText');
+  el.className = 'sync-status ' + status;
+  t.textContent = text;
+}
+
+async function syncFromCloud(){
+  if(!CONFIG.binKey){
+    setSyncStatus('err', 'مفتاح السحابة مطلوب');
+    loadLocalDB();
+    refreshAll();
+    return;
+  }
+  if(!CONFIG.binId){
+    setSyncStatus('err', 'لم يتم إنشاء Bin بعد');
+    loadLocalDB();
+    refreshAll();
+    return;
+  }
+
+  setSyncStatus('syncing', '🔄 جاري التحميل...');
+  try {
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.binId}/latest`, {
+      headers: { 'X-Master-Key': CONFIG.binKey }
+    });
+    if(!r.ok) throw new Error('فشل الاتصال: ' + r.status);
+    const data = await r.json();
+    if(data.record && data.record.periods){
+      DB = data.record;
+      saveLocalDB();
+      setSyncStatus('ok', '✅ متزامن');
+    } else {
+      throw new Error('بيانات غير صالحة');
+    }
+  } catch(e){
+    console.error(e);
+    setSyncStatus('err', '⚠️ ' + e.message);
+    loadLocalDB();
+  }
+  refreshAll();
+}
+
+async function syncToCloud(){
+  if(!CONFIG.binKey){ toast('❌ مفتاح السحابة مطلوب', 'err'); return; }
+
+  setSyncStatus('syncing', '⬆️ جاري الرفع...');
+  try {
+    if(!CONFIG.binId){
+      // Create new bin
+      const r = await fetch('https://api.jsonbin.io/v3/b', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': CONFIG.binKey, 'X-Bin-Name': 'CRM Archive', 'X-Bin-Private': 'true' },
+        body: JSON.stringify(DB)
+      });
+      if(!r.ok) throw new Error('فشل إنشاء Bin: ' + r.status);
+      const data = await r.json();
+      CONFIG.binId = data.metadata.id;
+      saveConfig();
+      setSyncStatus('ok', '✅ تم إنشاء Bin جديد');
+      toast('✅ تم إنشاء تخزين سحابي جديد');
+    } else {
+      // Update existing bin
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.binId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': CONFIG.binKey },
+        body: JSON.stringify(DB)
+      });
+      if(!r.ok) throw new Error('فشل التحديث: ' + r.status);
+      setSyncStatus('ok', '✅ متزامن');
+    }
+    saveLocalDB();
+  } catch(e){
+    console.error(e);
+    setSyncStatus('err', '❌ ' + e.message);
+    toast('❌ فشل الرفع: ' + e.message, 'err');
+  }
+}
+
+function scheduleSync(){
+  if(syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncToCloud(), 1500);
+}
+
+function syncNow(){ syncFromCloud(); }
+
+function saveLocalDB(){ localStorage.setItem('crm_db_v2', JSON.stringify(DB)); }
+function loadLocalDB(){
+  const s = localStorage.getItem('crm_db_v2');
+  if(s) { try { DB = JSON.parse(s); } catch(e){} }
+}
+
+// ==================== EXCEL PROCESSING ====================
+const DELIVERED = ['تم التسليم', 'تم التسوية', 'طرد معين لمهمة'];
+const RETURNED = ['مرتجعة مع الراسل', 'مرتجعة مع المندوب الغاء', 'مرتجعة معاد ارسالها', 'مرتجع معين لمهمة', 'مرتجعة مع المندوب مدفوع'];
+function classify(s){ if(DELIVERED.includes(s)) return 'd'; if(RETURNED.includes(s)) return 'r'; return 'o'; }
+
+function processXlsx(buffer, fileName){
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet);
+  if(!rows.length) throw new Error('الملف فارغ');
+
+  const need = ['Order_status_text', 'execution_branch_name', 'captain_name', 'client_name'];
+  const missing = need.filter(k => !Object.keys(rows[0]).includes(k));
+  if(missing.length) throw new Error('أعمدة مفقودة: ' + missing.join(', '));
+
+  rows.forEach(r => r._cat = classify(r.Order_status_text));
+
+  const branchMap = {};
+  rows.forEach(r => {
+    const b = r.execution_branch_name;
+    if(!branchMap[b]) branchMap[b] = { n:b, t:0, d:0, r:0, caps:{} };
+    branchMap[b].t++;
+    if(r._cat==='d') branchMap[b].d++; else if(r._cat==='r') branchMap[b].r++;
+    const cap = r.captain_name || 'غير محدد';
+    if(!branchMap[b].caps[cap]) branchMap[b].caps[cap] = { n:cap, t:0, d:0, r:0 };
+    branchMap[b].caps[cap].t++;
+    if(r._cat==='d') branchMap[b].caps[cap].d++; else if(r._cat==='r') branchMap[b].caps[cap].r++;
+  });
+
+  const branches = Object.values(branchMap).map(b => {
+    b.dp = +(b.d/b.t*100).toFixed(1);
+    b.rp = +(b.r/b.t*100).toFixed(1);
+    b.caps = Object.values(b.caps).map(c => {
+      c.dp = +(c.d/c.t*100).toFixed(1); c.rp = +(c.r/c.t*100).toFixed(1); return c;
+    }).sort((a,b) => b.dp - a.dp);
+    return b;
+  }).sort((a,b) => b.t - a.t);
+
+  const storeMap = {};
+  rows.forEach(r => {
+    const key = r.client_name + '|' + (r.client_id||'');
+    if(!storeMap[key]) storeMap[key] = { n:r.client_name, id:r.client_id||'', t:0, d:0, r:0 };
+    storeMap[key].t++;
+    if(r._cat==='d') storeMap[key].d++; else if(r._cat==='r') storeMap[key].r++;
+  });
+  const stores = Object.values(storeMap).map(s => {
+    s.dp = +(s.d/s.t*100).toFixed(1); s.rp = +(s.r/s.t*100).toFixed(1); return s;
+  }).sort((a,b) => b.t - a.t);
+
+  const total = rows.length;
+  const delivered = rows.filter(r => r._cat==='d').length;
+  const returned = rows.filter(r => r._cat==='r').length;
+  const captainsCount = branches.reduce((s,b) => s + b.caps.length, 0);
+  const physDeliv = rows.filter(r => r.Order_status_text === 'تم التسليم').length;
+  const finSettle = rows.filter(r => r.Order_status_text === 'تم التسوية').length;
+
+  return {
+    id: 'p_' + Date.now(),
+    name: fileName.replace(/\.(xlsx|xls)$/i, ''),
+    date: new Date().toISOString().slice(0,10),
+    uploadedAt: Date.now(),
+    fileName,
+    totals: { total, delivered, returned, dp:+(delivered/total*100).toFixed(1), rp:+(returned/total*100).toFixed(1) },
+    gap: { physDeliv, finSettle, diff: physDeliv - finSettle },
+    branches, stores,
+    branchesCount: branches.length, captainsCount, storesCount: stores.length
+  };
+}
+
+// ==================== UPLOAD ====================
+document.getElementById('xlsxInput').onchange = e => {
+  const f = e.target.files[0]; if(f) handleFile(f); e.target.value = '';
+};
+const uz = document.getElementById('uploadZone');
+uz.ondragover = e => { e.preventDefault(); uz.classList.add('drag'); };
+uz.ondragleave = () => uz.classList.remove('drag');
+uz.ondrop = e => { e.preventDefault(); uz.classList.remove('drag'); const f = e.dataTransfer.files[0]; if(f) handleFile(f); };
+
+function handleFile(f){
+  if(!/\.(xlsx|xls)$/i.test(f.name)){ toast('❌ ملف Excel فقط', 'err'); return; }
+  toast('⏳ جاري المعالجة...');
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const period = processXlsx(ev.target.result, f.name);
+      const name = prompt('اسم الفترة:', period.name) || period.name;
+      const date = prompt('التاريخ (YYYY-MM-DD):', period.date) || period.date;
+      period.name = name; period.date = date;
+      DB.periods.push(period);
+      DB.activeId = period.id;
+      saveLocalDB();
+      refreshAll();
+      scheduleSync();
+      toast(`✅ تمت إضافة "${name}" — ${period.totals.total.toLocaleString()} شحنة`);
+    } catch(err){ toast('❌ ' + err.message, 'err'); }
+  };
+  r.readAsArrayBuffer(f);
+}
+
+// ==================== RENDERING ====================
+function getActive(){ return DB.periods.find(p => p.id === DB.activeId) || DB.periods[DB.periods.length-1]; }
+
+function renderPeriodSelector(){
+  const el = document.getElementById('periodSel');
+  if(DB.periods.length === 0){ el.innerHTML = '<span class="period-lbl">لم يتم رفع أي ملف بعد</span>'; return; }
+  let h = '<span class="period-lbl">📅 الفترة:</span>';
+  DB.periods.forEach(p => {
+    const a = p.id === DB.activeId;
+    h += `<div class="period-chip ${a?'on':''}" onclick="selectPeriod('${p.id}')"><span>${p.name}</span><span class="edit" onclick="event.stopPropagation();openRename('${p.id}')">✎</span><span class="x" onclick="event.stopPropagation();deletePeriod('${p.id}')">×</span></div>`;
+  });
+  el.innerHTML = h;
+  document.getElementById('periodsCount').textContent = `${DB.periods.length} فترة`;
+}
+
+function selectPeriod(id){ DB.activeId = id; saveLocalDB(); scheduleSync(); refreshViews(); }
+
+function deletePeriod(id){
+  const p = DB.periods.find(x => x.id === id);
+  if(!p || !confirm(`حذف "${p.name}"؟`)) return;
+  DB.periods = DB.periods.filter(x => x.id !== id);
+  if(DB.activeId === id) DB.activeId = DB.periods.length ? DB.periods[DB.periods.length-1].id : null;
+  saveLocalDB(); refreshAll(); scheduleSync();
+  toast('🗑️ تم الحذف');
+}
+
+function openRename(id){
+  renamingId = id;
+  const p = DB.periods.find(x => x.id === id);
+  document.getElementById('renameInput').value = p.name;
+  document.getElementById('dateInput').value = p.date;
+  document.getElementById('renameModal').classList.add('on');
+}
+function closeRename(){ document.getElementById('renameModal').classList.remove('on'); }
+function saveRename(){
+  const p = DB.periods.find(x => x.id === renamingId); if(!p) return;
+  p.name = document.getElementById('renameInput').value.trim() || p.name;
+  p.date = document.getElementById('dateInput').value || p.date;
+  saveLocalDB(); refreshAll(); scheduleSync(); closeRename();
+  toast('✅ تم التعديل');
+}
+
+// Overview
+function renderOverview(){
+  const p = getActive();
+  const el = document.getElementById('overviewContent');
+  if(!p){ el.innerHTML = emptyState('لا توجد بيانات بعد', 'ابدأ برفع ملف Excel للشحنات'); return; }
+  const t = p.totals;
+  const other = t.total - t.delivered - t.returned;
+
+  let h = `<div class="kpis">
+    <div class="kpi" style="--kc:var(--blu)"><div class="kl">إجمالي</div><div class="kv">${t.total.toLocaleString()}</div><div class="ks">${p.branchesCount} فرع · ${p.captainsCount} مندوب</div></div>
+    <div class="kpi" style="--kc:var(--grn)"><div class="kl">✅ تسليمات</div><div class="kv">${t.delivered.toLocaleString()}</div><div class="ks">${t.dp}%</div></div>
+    <div class="kpi" style="--kc:var(--red)"><div class="kl">🔄 مرتجعات</div><div class="kv">${t.returned.toLocaleString()}</div><div class="ks">${t.rp}%</div></div>
+    <div class="kpi" style="--kc:var(--amb)"><div class="kl">⏳ أخرى</div><div class="kv">${other.toLocaleString()}</div><div class="ks">${(other/t.total*100).toFixed(1)}%</div></div>
+  </div>`;
+
+  const topB = [...p.branches].slice(0,5);
+  h += `<div class="charts-row">
+    <div class="chart-box"><h3>🏢 أكبر 5 فروع</h3><canvas id="chBranches"></canvas></div>
+    <div class="chart-box"><h3>🥧 توزيع الحالات</h3><canvas id="chStatus"></canvas></div>
+  </div>`;
+  h += `<div style="background:var(--c1);border:1px solid var(--bdr);border-radius:12px;padding:18px">
+    <h3 style="font-size:.9rem;margin-bottom:12px">📐 فجوة التسوية المالية</h3>
+    <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+      <div><div style="font-size:1.4rem;font-weight:900;color:var(--grn)">${p.gap.physDeliv.toLocaleString()}</div><div style="font-size:.72rem;color:var(--t3)">تسليم فعلي</div></div>
+      <div style="color:var(--t3)">→</div>
+      <div><div style="font-size:1.4rem;font-weight:900;color:var(--blu)">${p.gap.finSettle.toLocaleString()}</div><div style="font-size:.72rem;color:var(--t3)">تسوية مالية</div></div>
+      <div style="color:var(--t3)">=</div>
+      <div><div style="font-size:1.4rem;font-weight:900;color:var(--amb)">${p.gap.diff.toLocaleString()}</div><div style="font-size:.72rem;color:var(--t3)">فجوة</div></div>
+    </div>
+  </div>`;
+  el.innerHTML = h;
+
+  setTimeout(() => {
+    new Chart(document.getElementById('chBranches'), {
+      type:'bar', data:{ labels: topB.map(b=>b.n), datasets:[{ label:'% تسليم', data: topB.map(b=>b.dp), backgroundColor:'#3b82f6' }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94a8cc'}}}, scales:{ x:{ticks:{color:'#94a8cc'}}, y:{ticks:{color:'#94a8cc'}, max:100} } }
+    });
+    new Chart(document.getElementById('chStatus'), {
+      type:'doughnut', data:{ labels:['مسلّم','مرتجع','أخرى'], datasets:[{ data:[t.delivered,t.returned,other], backgroundColor:['#22c55e','#f43f5e','#eab308'] }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom',labels:{color:'#94a8cc'}}} }
+    });
+  }, 50);
+}
+
+function renderBranches(){
+  const p = getActive();
+  if(!p){ document.getElementById('blist').innerHTML = emptyState('لا توجد بيانات', 'ارفع ملف Excel'); return; }
+  const q = document.getElementById('s1').value.trim();
+  const so = document.getElementById('sort1').value;
+  let bs = [...p.branches];
+  if(so==='dp_desc') bs.sort((a,b)=>b.dp-a.dp);
+  else if(so==='dp_asc') bs.sort((a,b)=>a.dp-b.dp);
+  else if(so==='rp') bs.sort((a,b)=>b.rp-a.rp);
+  else bs.sort((a,b)=>b.t-a.t);
+
+  let h='', tc=0;
+  bs.forEach(b => {
+    const bMatch = !q || b.n.includes(q);
+    const fCaps = q ? b.caps.filter(c => c.n.includes(q)) : b.caps;
+    if(!bMatch && fCaps.length===0) return;
+    const show = bMatch ? b.caps : fCaps;
+    tc += show.length;
+    const isOpen = q.length > 0;
+    h += `<div class="br-card${isOpen?' open':''}"><div class="br-top" onclick="this.parentElement.classList.toggle('open')">
+      <div class="br-info"><span class="br-name">${b.n}</span><div class="br-tags">${tg(b.dp)} ${rtg(b.rp)} <span class="tg tg-b">${show.length} مندوب</span></div></div>
+      <div class="br-right"><div class="br-stat"><div class="sv">${b.t.toLocaleString()}</div><div class="sl">شحنة</div></div><div class="br-stat"><div class="sv" style="color:var(--grn)">${b.d.toLocaleString()}</div><div class="sl">مسلّم</div></div><div class="br-stat"><div class="sv" style="color:var(--red)">${b.r.toLocaleString()}</div><div class="sl">مرتجع</div></div></div>
+      <span class="chev">▼</span></div>
+      <div class="br-body"><table><thead><tr><th>#</th><th>المندوب</th><th>شحنات</th><th>مسلّم</th><th>مرتجع</th><th>% تسليم</th><th>% مرتجع</th><th>تقييم</th></tr></thead><tbody>`;
+    show.forEach((c,i) => {
+      const rk = i<3 ? ` rank-${i+1}` : '';
+      h += `<tr><td class="rank${rk}">${i+1}</td><td><strong>${c.n}</strong></td><td>${c.t}</td><td>${c.d}</td><td>${c.r}</td><td>${bar(c.dp)}</td><td>${rtg(c.rp)}</td><td>${rat(c.dp)}</td></tr>`;
+    });
+    h += `</tbody></table></div></div>`;
+  });
+  document.getElementById('blist').innerHTML = h;
+  document.getElementById('c1').textContent = `${tc} مندوب`;
+}
+document.getElementById('s1').oninput = renderBranches;
+document.getElementById('sort1').onchange = renderBranches;
+
+function renderStores(){
+  const p = getActive();
+  if(!p){ document.getElementById('stbl').innerHTML = `<tr><td colspan="9">${emptyState('لا توجد بيانات','ارفع ملف Excel')}</td></tr>`; return; }
+  const q = document.getElementById('s2').value.trim();
+  const so = document.getElementById('sort2').value;
+  const fi = document.getElementById('filt2').value;
+  let ss = [...p.stores];
+  if(q) ss = ss.filter(s => s.n.includes(q));
+  if(fi==='hi') ss = ss.filter(s => s.dp>=70);
+  else if(fi==='md') ss = ss.filter(s => s.dp>=40 && s.dp<70);
+  else if(fi==='lo') ss = ss.filter(s => s.dp<40);
+  if(so==='dp') ss.sort((a,b)=>b.dp-a.dp);
+  else if(so==='dp_asc') ss.sort((a,b)=>a.dp-b.dp);
+  else if(so==='rp') ss.sort((a,b)=>b.rp-a.rp);
+  else ss.sort((a,b)=>b.t-a.t);
+  let h = '';
+  ss.forEach((s,i) => {
+    h += `<tr><td class="rank">${i+1}</td><td><strong>${s.n}</strong></td><td style="color:var(--t3)">${s.id}</td><td>${s.t}</td><td>${s.d}</td><td>${s.r}</td><td>${bar(s.dp)}</td><td>${rtg(s.rp)}</td><td>${rat(s.dp)}</td></tr>`;
+  });
+  document.getElementById('stbl').innerHTML = h || `<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--t3)">لا توجد نتائج</td></tr>`;
+  document.getElementById('c2').textContent = `${ss.length} / ${p.stores.length} متجر`;
+}
+document.getElementById('s2').oninput = renderStores;
+document.getElementById('sort2').onchange = renderStores;
+document.getElementById('filt2').onchange = renderStores;
+
+function renderCmpDropdowns(){
+  const a = document.getElementById('cmpA'), b = document.getElementById('cmpB');
+  const opts = DB.periods.map(p => `<option value="${p.id}">${p.name} (${p.date})</option>`).join('');
+  a.innerHTML = opts; b.innerHTML = opts;
+  if(DB.periods.length >= 2){
+    a.value = DB.periods[DB.periods.length-2].id;
+    b.value = DB.periods[DB.periods.length-1].id;
+  }
+}
+
+function renderComparison(){
+  const el = document.getElementById('cmpContent');
+  cmpCharts.forEach(c => c.destroy()); cmpCharts = [];
+  if(DB.periods.length < 2){ el.innerHTML = emptyState('تحتاج فترتين', 'ارفع ملفين Excel على الأقل'); return; }
+  const A = DB.periods.find(p => p.id === document.getElementById('cmpA').value);
+  const B = DB.periods.find(p => p.id === document.getElementById('cmpB').value);
+  if(!A || !B){ el.innerHTML = emptyState('خطأ', 'اختر فترتين'); return; }
+  if(A.id === B.id){ el.innerHTML = emptyState('نفس الفترة', 'اختر فترتين مختلفتين'); return; }
+
+  let h = `<div class="cmp-summary">
+    <div class="cmp-box"><div class="l">إجمالي الشحنات</div><div class="vals"><span class="v1">${A.totals.total.toLocaleString()}</span><span class="arrow">→</span><span class="v2">${B.totals.total.toLocaleString()}</span></div>${diffBadge(A.totals.total,B.totals.total)}</div>
+    <div class="cmp-box"><div class="l">% التسليم</div><div class="vals"><span class="v1">${A.totals.dp}%</span><span class="arrow">→</span><span class="v2">${B.totals.dp}%</span></div>${diffBadge(A.totals.dp,B.totals.dp)}</div>
+    <div class="cmp-box"><div class="l">% المرتجع</div><div class="vals"><span class="v1">${A.totals.rp}%</span><span class="arrow">→</span><span class="v2">${B.totals.rp}%</span></div>${diffBadge(A.totals.rp,B.totals.rp,true)}</div>
+    <div class="cmp-box"><div class="l">فجوة التسوية</div><div class="vals"><span class="v1">${A.gap.diff}</span><span class="arrow">→</span><span class="v2">${B.gap.diff}</span></div>${diffBadge(A.gap.diff,B.gap.diff,true)}</div>
+  </div>`;
+
+  h += `<div class="charts-row"><div class="chart-box"><h3>📊 نسب التسليم</h3><canvas id="cmpCh1"></canvas></div><div class="chart-box"><h3>📉 نسب المرتجع</h3><canvas id="cmpCh2"></canvas></div></div>`;
+
+  const allBr = new Set([...A.branches.map(b=>b.n), ...B.branches.map(b=>b.n)]);
+  const brRows = [...allBr].map(n => {
+    const a = A.branches.find(b=>b.n===n) || {t:0,dp:0,rp:0};
+    const b = B.branches.find(b=>b.n===n) || {t:0,dp:0,rp:0};
+    return { n, at:a.t, bt:b.t, adp:a.dp, bdp:b.dp, arp:a.rp, brp:b.rp };
+  }).sort((x,y) => (y.at+y.bt) - (x.at+x.bt));
+
+  h += `<div class="tw" style="margin-bottom:16px"><div style="padding:14px 18px;border-bottom:1px solid var(--bdr);font-weight:800">🏢 مقارنة الفروع</div><div class="scroll">
+    <table><thead><tr><th>الفرع</th><th>شحنات ${A.name}</th><th>شحنات ${B.name}</th><th>تغيير</th><th>%تسليم ${A.name}</th><th>%تسليم ${B.name}</th><th>فرق</th></tr></thead><tbody>`;
+  brRows.forEach(r => {
+    h += `<tr><td><strong>${r.n}</strong></td><td>${r.at.toLocaleString()}</td><td>${r.bt.toLocaleString()}</td><td>${diffBadge(r.at,r.bt)}</td><td>${tg(r.adp)}</td><td>${tg(r.bdp)}</td><td>${diffBadge(r.adp,r.bdp)}</td></tr>`;
+  });
+  h += `</tbody></table></div></div>`;
+
+  const allSt = new Set([...A.stores.map(s=>s.n), ...B.stores.map(s=>s.n)]);
+  const stRows = [...allSt].map(n => {
+    const a = A.stores.find(s=>s.n===n) || {t:0,dp:0};
+    const b = B.stores.find(s=>s.n===n) || {t:0,dp:0};
+    return { n, at:a.t, bt:b.t, adp:a.dp, bdp:b.dp };
+  }).sort((x,y) => (y.at+y.bt) - (x.at+x.bt)).slice(0,30);
+  h += `<div class="tw"><div style="padding:14px 18px;border-bottom:1px solid var(--bdr);font-weight:800">🏪 مقارنة المتاجر (أهم 30)</div><div class="scroll">
+    <table><thead><tr><th>المتجر</th><th>شحنات ${A.name}</th><th>شحنات ${B.name}</th><th>تغيير</th><th>%تسليم ${A.name}</th><th>%تسليم ${B.name}</th><th>فرق</th></tr></thead><tbody>`;
+  stRows.forEach(r => {
+    h += `<tr><td><strong>${r.n}</strong></td><td>${r.at.toLocaleString()}</td><td>${r.bt.toLocaleString()}</td><td>${diffBadge(r.at,r.bt)}</td><td>${tg(r.adp)}</td><td>${tg(r.bdp)}</td><td>${diffBadge(r.adp,r.bdp)}</td></tr>`;
+  });
+  h += `</tbody></table></div></div>`;
+  el.innerHTML = h;
+
+  setTimeout(() => {
+    const top = brRows.slice(0,8);
+    cmpCharts.push(new Chart(document.getElementById('cmpCh1'), {
+      type:'bar', data:{ labels:top.map(r=>r.n), datasets:[{label:A.name,data:top.map(r=>r.adp),backgroundColor:'#94a8cc'},{label:B.name,data:top.map(r=>r.bdp),backgroundColor:'#3b82f6'}] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94a8cc'}}}, scales:{x:{ticks:{color:'#94a8cc'}},y:{ticks:{color:'#94a8cc'},max:100}} }
+    }));
+    cmpCharts.push(new Chart(document.getElementById('cmpCh2'), {
+      type:'bar', data:{ labels:top.map(r=>r.n), datasets:[{label:A.name,data:top.map(r=>r.arp),backgroundColor:'#94a8cc'},{label:B.name,data:top.map(r=>r.brp),backgroundColor:'#f43f5e'}] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94a8cc'}}}, scales:{x:{ticks:{color:'#94a8cc'}},y:{ticks:{color:'#94a8cc'},max:100}} }
+    }));
+  }, 50);
+}
+document.getElementById('cmpA').onchange = renderComparison;
+document.getElementById('cmpB').onchange = renderComparison;
+
+function renderArchive(){
+  const tbl = document.getElementById('archiveTbl');
+  if(DB.periods.length === 0){
+    tbl.innerHTML = `<tr><td colspan="10">${emptyState('لا توجد فترات','ارفع أول ملف Excel')}</td></tr>`;
+    if(trendChartInstance){ trendChartInstance.destroy(); trendChartInstance = null; } return;
+  }
+  let h = '';
+  const sorted = [...DB.periods].sort((a,b) => new Date(a.date) - new Date(b.date));
+  sorted.forEach((p,i) => {
+    h += `<tr><td class="rank">${i+1}</td><td><strong>${p.name}</strong></td><td style="color:var(--t3)">${p.date}</td><td>${p.totals.total.toLocaleString()}</td><td>${tg(p.totals.dp)}</td><td>${rtg(p.totals.rp)}</td><td>${p.branchesCount}</td><td>${p.captainsCount}</td><td>${p.storesCount}</td>
+    <td><button class="btn btn-ghost btn-sm" onclick="selectPeriod('${p.id}');showTab(0)">عرض</button> <button class="btn btn-ghost btn-sm" onclick="openRename('${p.id}')">✎</button> <button class="btn btn-danger btn-sm" onclick="deletePeriod('${p.id}')">🗑️</button></td></tr>`;
+  });
+  tbl.innerHTML = h;
+  setTimeout(() => {
+    if(trendChartInstance) trendChartInstance.destroy();
+    trendChartInstance = new Chart(document.getElementById('trendChart'), {
+      type:'line', data:{ labels: sorted.map(p=>p.name), datasets:[
+        { label:'% التسليم', data:sorted.map(p=>p.totals.dp), borderColor:'#22c55e', backgroundColor:'rgba(34,197,94,.1)', fill:true, tension:.3 },
+        { label:'% المرتجع', data:sorted.map(p=>p.totals.rp), borderColor:'#f43f5e', backgroundColor:'rgba(244,63,94,.1)', fill:true, tension:.3 }
+      ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94a8cc'}}}, scales:{x:{ticks:{color:'#94a8cc'}},y:{ticks:{color:'#94a8cc'},max:100}} }
+    });
+  }, 50);
+}
+
+// Export functions
+function exportComparisonPDF(){
+  if(DB.periods.length < 2){ toast('❌ تحتاج فترتين', 'err'); return; }
+  const A = DB.periods.find(p => p.id === document.getElementById('cmpA').value);
+  const B = DB.periods.find(p => p.id === document.getElementById('cmpB').value);
+  if(!A || !B || A.id === B.id){ toast('❌ اختر فترتين مختلفتين', 'err'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(16); doc.text('Performance Comparison Report', 14, 18);
+  doc.setFontSize(11); doc.text(`Period A: ${A.name} (${A.date})`, 14, 28);
+  doc.text(`Period B: ${B.name} (${B.date})`, 14, 35);
+  doc.autoTable({ startY: 42, head: [['Metric', A.name, B.name, 'Change']],
+    body: [['Total', A.totals.total, B.totals.total, B.totals.total - A.totals.total],
+    ['Delivered %', A.totals.dp+'%', B.totals.dp+'%', ((B.totals.dp-A.totals.dp).toFixed(1))+'%'],
+    ['Returned %', A.totals.rp+'%', B.totals.rp+'%', ((B.totals.rp-A.totals.rp).toFixed(1))+'%']] });
+  doc.save(`comparison_${A.name}_vs_${B.name}.pdf`);
+  toast('✅ تم تصدير PDF');
+}
+
+function exportComparisonExcel(){
+  if(DB.periods.length < 2){ toast('❌ تحتاج فترتين', 'err'); return; }
+  const A = DB.periods.find(p => p.id === document.getElementById('cmpA').value);
+  const B = DB.periods.find(p => p.id === document.getElementById('cmpB').value);
+  if(!A || !B || A.id === B.id){ toast('❌ اختر فترتين مختلفتين', 'err'); return; }
+  const wb = XLSX.utils.book_new();
+  const summary = [['المؤشر', A.name, B.name, 'الفرق'],
+    ['إجمالي', A.totals.total, B.totals.total, B.totals.total - A.totals.total],
+    ['% تسليم', A.totals.dp, B.totals.dp, +(B.totals.dp - A.totals.dp).toFixed(1)],
+    ['% مرتجع', A.totals.rp, B.totals.rp, +(B.totals.rp - A.totals.rp).toFixed(1)]];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'الملخص');
+  XLSX.writeFile(wb, `comparison_${A.name}_vs_${B.name}.xlsx`);
+  toast('✅ تم تصدير Excel');
+}
+
+// Tabs
+function showTab(i){
+  activeTab = i;
+  document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('on', j===i));
+  document.querySelectorAll('.panel').forEach((p,j) => p.classList.toggle('on', j===i));
+  refreshViews();
+}
+
+function refreshViews(){
+  if(activeTab===0) renderOverview();
+  else if(activeTab===1) renderBranches();
+  else if(activeTab===2) renderStores();
+  else if(activeTab===3){ renderCmpDropdowns(); renderComparison(); }
+  else if(activeTab===4) renderArchive();
+}
+function refreshAll(){ renderPeriodSelector(); refreshViews(); }
+
+// ==================== INIT ====================
+loadConfig();
+loadLocalDB();
+if(sessionStorage.getItem('crm_auth') === '1' && CONFIG.pwd){
+  enterApp();
+}
+</script>
+
+</body>
+</html>
