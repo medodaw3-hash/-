@@ -165,7 +165,7 @@ tbody tr:hover{background:rgba(255,255,255,.02)}
 .chart-box h3{font-size:.85rem;font-weight:800;margin-bottom:10px;color:var(--t2)}
 .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
 
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:2001;padding:20px}
 .modal-bg.on{display:flex}
 .modal{background:var(--c1);border:1px solid var(--bdr);border-radius:16px;padding:24px;max-width:420px;width:100%}
 .modal h2{font-size:1.1rem;margin-bottom:16px}
@@ -414,6 +414,7 @@ function hashPwd(p){
 }
 
 function showSetup(){
+  document.getElementById('loginErr').classList.remove('on');
   document.getElementById('newPwd').value = '';
   document.getElementById('binKey').value = CONFIG.binKey || '';
   document.getElementById('binId').value = CONFIG.binId || '';
@@ -440,6 +441,7 @@ function tryLogin(){
     // First time - prompt to set up
     document.getElementById('loginErr').classList.add('on');
     document.getElementById('loginErr').textContent = 'لم يتم إعداد كلمة سر بعد. اضغط "إعدادات المزامنة والسر"';
+    showSetup();
     return;
   }
   if(hashPwd(p) === CONFIG.pwd){
@@ -453,6 +455,16 @@ function tryLogin(){
 
 document.getElementById('pwdInput').addEventListener('keypress', e => {
   if(e.key === 'Enter') tryLogin();
+});
+
+// UX: close setup modal with backdrop click or Escape
+document.getElementById('setupModal').addEventListener('click', e => {
+  if(e.target.id === 'setupModal') closeSetup();
+});
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && document.getElementById('setupModal').classList.contains('on')) {
+    closeSetup();
+  }
 });
 
 function logout(){
