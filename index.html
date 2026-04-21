@@ -427,12 +427,23 @@ function saveSetup(){
   const binKey = document.getElementById('binKey').value.trim();
   const binId = document.getElementById('binId').value.trim();
 
+  if(!pwd && !CONFIG.pwd){
+    toast('❌ أدخل كلمة سر جديدة', 'err');
+    document.getElementById('newPwd').focus();
+    return;
+  }
+  if(!binKey){
+    toast('❌ مفتاح السحابة مطلوب لتوحيد البيانات بين الأجهزة', 'err');
+    document.getElementById('binKey').focus();
+    return;
+  }
+
   if(pwd) CONFIG.pwd = hashPwd(pwd);
   CONFIG.binKey = binKey;
   CONFIG.binId = binId;
   saveConfig();
   closeSetup();
-  toast('✅ تم حفظ الإعدادات');
+  toast(binId ? '✅ تم حفظ الإعدادات' : '✅ تم الحفظ، أول رفع سينشئ Bin ID تلقائيًا');
 }
 
 function tryLogin(){
@@ -473,6 +484,12 @@ function logout(){
 }
 
 function enterApp(){
+  if(!CONFIG.binKey){
+    document.getElementById('loginErr').classList.add('on');
+    document.getElementById('loginErr').textContent = 'لازم إعداد السحابة أولاً حتى تُحفظ البيانات وتظهر على الهاتف';
+    showSetup();
+    return;
+  }
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').classList.add('on');
   syncFromCloud();
@@ -489,12 +506,14 @@ function setSyncStatus(status, text){
 async function syncFromCloud(){
   if(!CONFIG.binKey){
     setSyncStatus('err', 'مفتاح السحابة مطلوب');
+    toast('⚠️ أدخل مفتاح JSONBin من الإعدادات لتوحيد البيانات', 'err');
     loadLocalDB();
     refreshAll();
     return;
   }
   if(!CONFIG.binId){
     setSyncStatus('err', 'لم يتم إنشاء Bin بعد');
+    toast('ℹ️ اضغط تحديث/رفع مرة واحدة لإنشاء Bin ID ثم استخدمه على كل الأجهزة');
     loadLocalDB();
     refreshAll();
     return;
@@ -563,7 +582,19 @@ function scheduleSync(){
   syncTimer = setTimeout(() => syncToCloud(), 1500);
 }
 
-function syncNow(){ syncFromCloud(); }
+function syncNow(){
+  if(!CONFIG.binKey){
+    toast('❌ أدخل مفتاح السحابة أولاً', 'err');
+    showSetup();
+    return;
+  }
+  if(!CONFIG.binId){
+    // Force a cloud write once to create Bin ID, then fetch.
+    syncToCloud().then(()=>syncFromCloud());
+    return;
+  }
+  syncFromCloud();
+}
 
 function saveLocalDB(){ localStorage.setItem('crm_db_v2', JSON.stringify(DB)); }
 function loadLocalDB(){
