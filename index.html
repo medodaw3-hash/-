@@ -563,7 +563,7 @@ function autoArchiveFiveWeeks(){
   while(DB.periods.length >= 5){
     const sorted = [...DB.periods].sort((a,b) => (a.uploadedAt||0) - (b.uploadedAt||0));
     const firstFive = sorted.slice(0,5);
-    const ids = new Set(firstFive.map(p => p.id));
+    const firstFourIds = new Set(firstFive.slice(0,4).map(p => p.id));
     const report = buildArchiveReport(firstFive);
     const label = `archive_${report.from}_to_${report.to}_weeks_${firstFive.length}`;
     const pack = {
@@ -577,7 +577,8 @@ function autoArchiveFiveWeeks(){
     DB.archives.push(pack);
     downloadArchiveJson(pack);
     downloadArchiveExcel(pack);
-    DB.periods = DB.periods.filter(p => !ids.has(p.id));
+    // Keep week 5 visible in the system, archive includes all first five weeks.
+    DB.periods = DB.periods.filter(p => !firstFourIds.has(p.id));
     batches++;
     weeks += firstFive.length;
   }
