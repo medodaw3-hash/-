@@ -372,6 +372,7 @@ let trendChartInstance = null;
 let cmpCharts = [];
 let activeTab = 0;
 let syncTimer = null;
+let lastCloudSnapshot = '';
 
 // ==================== UTILITIES ====================
 function toast(msg, type='ok'){
@@ -395,6 +396,9 @@ function diffBadge(oldV, newV, inv=false){
 }
 function emptyState(title, desc){
   return `<div class="empty-state"><div class="ico">📊</div><h3>${title}</h3><p>${desc}</p></div>`;
+}
+function stableSnapshot(obj){
+  try{return JSON.stringify(obj||{});}catch{return '';}
 }
 
 // ==================== CONFIG & AUTH ====================
@@ -528,6 +532,7 @@ async function syncFromCloud(){
     const data = await r.json();
     if(data.record && data.record.periods){
       DB = data.record;
+      lastCloudSnapshot = stableSnapshot(DB);
       saveLocalDB();
       setSyncStatus('ok', '✅ متزامن');
     } else {
@@ -560,6 +565,27 @@ async function syncToCloud(){
       setSyncStatus('ok', '✅ تم إنشاء Bin جديد');
       toast('✅ تم إنشاء تخزين سحابي جديد');
     } else {
+      // Conflict guard: prevent overwriting newer cloud edits from another device.
+      const latest = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.binId}/latest`, {
+        headers: { 'X-Master-Key': CONFIG.binKey }
+      });
+      if(!latest.ok) throw new Error('فشل فحص آخر نسخة: ' + latest.status);
+      const latestData = await latest.json();
+      const remoteRecord = latestData?.record || {};
+      const remoteSnapshot = stableSnapshot(remoteRecord);
+      if(lastCloudSnapshot && remoteSnapshot && remoteSnapshot !== lastCloudSnapshot){
+        localStorage.setItem('crm_conflict_backup_v1', JSON.stringify({
+          at: new Date().toISOString(),
+          local: DB
+        }));
+        DB = remoteRecord;
+        lastCloudSnapshot = remoteSnapshot;
+        saveLocalDB();
+        refreshAll();
+        setSyncStatus('err', '⚠️ تعارض مزامنة');
+        toast('⚠️ تم اكتشاف تعديل من جهاز آخر. حمّلنا أحدث نسخة وحفظنا نسختك محليًا كنسخة احتياطية.', 'err');
+        return;
+      }
       // Update existing bin
       const r = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.binId}`, {
         method: 'PUT',
@@ -567,6 +593,7 @@ async function syncToCloud(){
         body: JSON.stringify(DB)
       });
       if(!r.ok) throw new Error('فشل التحديث: ' + r.status);
+      lastCloudSnapshot = stableSnapshot(DB);
       setSyncStatus('ok', '✅ متزامن');
     }
     saveLocalDB();
