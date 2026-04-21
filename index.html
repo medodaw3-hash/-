@@ -457,6 +457,19 @@ function diffBadge(oldV, newV, inv=false){
   const cls = inv ? (up ? 'diff-down' : 'diff-up') : (up ? 'diff-up' : 'diff-down');
   return `<span class="diff ${cls}">${up?'▲':'▼'} ${Math.abs(d)}</span>`;
 }
+function pctChange(oldV, newV){
+  const o = Number(oldV||0), n = Number(newV||0);
+  if(o === 0 && n === 0) return 0;
+  if(o === 0) return 100;
+  return +(((n - o) / Math.abs(o)) * 100).toFixed(1);
+}
+function trendBadge(oldV, newV, inv=false){
+  const p = pctChange(oldV, newV);
+  if(Math.abs(p) < 0.05) return `<span class="diff diff-same">0%</span>`;
+  const up = p > 0;
+  const cls = inv ? (up ? 'diff-down' : 'diff-up') : (up ? 'diff-up' : 'diff-down');
+  return `<span class="diff ${cls}">${up?'▲':'▼'} ${Math.abs(p)}%</span>`;
+}
 function emptyState(title, desc){
   return `<div class="empty-state"><div class="ico">📊</div><h3>${title}</h3><p>${desc}</p></div>`;
 }
@@ -1079,29 +1092,50 @@ document.getElementById('sort2').onchange = renderStores;
 document.getElementById('filt2').onchange = renderStores;
 
 function renderCmpDropdowns(){
+  const allPeriods = getAllPeriodsForComparison();
   const a = document.getElementById('cmpA'), b = document.getElementById('cmpB');
-  const opts = DB.periods.map(p => `<option value="${p.id}">${p.name} (${p.date})</option>`).join('');
+  const opts = allPeriods.map(p => `<option value="${p.id}">${p.name} (${p.date})${p._archived?' [مؤرشف]':''}</option>`).join('');
   a.innerHTML = opts; b.innerHTML = opts;
-  if(DB.periods.length >= 2){
-    a.value = DB.periods[DB.periods.length-2].id;
-    b.value = DB.periods[DB.periods.length-1].id;
+  if(allPeriods.length >= 2){
+    a.value = allPeriods[allPeriods.length-2].id;
+    b.value = allPeriods[allPeriods.length-1].id;
   }
+}
+
+function getAllPeriodsForComparison(){
+  ensureDBShape();
+  const byId = new Map();
+  (DB.archives||[]).forEach(pack=>{
+    const rows = pack?.report?.rawPeriods || [];
+    rows.forEach(p=>{
+      if(p && p.id && !byId.has(p.id)) byId.set(p.id, { ...p, _archived:true });
+    });
+  });
+  (DB.periods||[]).forEach(p=>{
+    if(p && p.id) byId.set(p.id, { ...p, _archived:false });
+  });
+  return [...byId.values()].sort((a,b)=>{
+    const ta = a.uploadedAt || Date.parse(a.date||'') || 0;
+    const tb = b.uploadedAt || Date.parse(b.date||'') || 0;
+    return ta - tb;
+  });
 }
 
 function renderComparison(){
   const el = document.getElementById('cmpContent');
+  const allPeriods = getAllPeriodsForComparison();
   cmpCharts.forEach(c => c.destroy()); cmpCharts = [];
-  if(DB.periods.length < 2){ el.innerHTML = emptyState('تحتاج فترتين', 'ارفع ملفين Excel على الأقل'); return; }
-  const A = DB.periods.find(p => p.id === document.getElementById('cmpA').value);
-  const B = DB.periods.find(p => p.id === document.getElementById('cmpB').value);
+  if(allPeriods.length < 2){ el.innerHTML = emptyState('تحتاج فترتين', 'لا توجد بيانات كافية للمقارنة'); return; }
+  const A = allPeriods.find(p => p.id === document.getElementById('cmpA').value);
+  const B = allPeriods.find(p => p.id === document.getElementById('cmpB').value);
   if(!A || !B){ el.innerHTML = emptyState('خطأ', 'اختر فترتين'); return; }
   if(A.id === B.id){ el.innerHTML = emptyState('نفس الفترة', 'اختر فترتين مختلفتين'); return; }
 
   let h = `<div class="cmp-summary">
-    <div class="cmp-box"><div class="l">إجمالي الشحنات</div><div class="vals"><span class="v1">${A.totals.total.toLocaleString()}</span><span class="arrow">→</span><span class="v2">${B.totals.total.toLocaleString()}</span></div>${diffBadge(A.totals.total,B.totals.total)}</div>
-    <div class="cmp-box"><div class="l">% التسليم</div><div class="vals"><span class="v1">${A.totals.dp}%</span><span class="arrow">→</span><span class="v2">${B.totals.dp}%</span></div>${diffBadge(A.totals.dp,B.totals.dp)}</div>
-    <div class="cmp-box"><div class="l">% المرتجع</div><div class="vals"><span class="v1">${A.totals.rp}%</span><span class="arrow">→</span><span class="v2">${B.totals.rp}%</span></div>${diffBadge(A.totals.rp,B.totals.rp,true)}</div>
-    <div class="cmp-box"><div class="l">فجوة التسوية</div><div class="vals"><span class="v1">${A.gap.diff}</span><span class="arrow">→</span><span class="v2">${B.gap.diff}</span></div>${diffBadge(A.gap.diff,B.gap.diff,true)}</div>
+    <div class="cmp-box"><div class="l">إجمالي الشحنات</div><div class="vals"><span class="v1">${A.totals.total.toLocaleString()}</span><span class="arrow">→</span><span class="v2">${B.totals.total.toLocaleString()}</span></div>${diffBadge(A.totals.total,B.totals.total)} ${trendBadge(A.totals.total,B.totals.total)}</div>
+    <div class="cmp-box"><div class="l">% التسليم</div><div class="vals"><span class="v1">${A.totals.dp}%</span><span class="arrow">→</span><span class="v2">${B.totals.dp}%</span></div>${diffBadge(A.totals.dp,B.totals.dp)} ${trendBadge(A.totals.dp,B.totals.dp)}</div>
+    <div class="cmp-box"><div class="l">% المرتجع</div><div class="vals"><span class="v1">${A.totals.rp}%</span><span class="arrow">→</span><span class="v2">${B.totals.rp}%</span></div>${diffBadge(A.totals.rp,B.totals.rp,true)} ${trendBadge(A.totals.rp,B.totals.rp,true)}</div>
+    <div class="cmp-box"><div class="l">فجوة التسوية</div><div class="vals"><span class="v1">${A.gap.diff}</span><span class="arrow">→</span><span class="v2">${B.gap.diff}</span></div>${diffBadge(A.gap.diff,B.gap.diff,true)} ${trendBadge(A.gap.diff,B.gap.diff,true)}</div>
   </div>`;
 
   h += `<div class="charts-row"><div class="chart-box"><h3>📊 نسب التسليم</h3><canvas id="cmpCh1"></canvas></div><div class="chart-box"><h3>📉 نسب المرتجع</h3><canvas id="cmpCh2"></canvas></div></div>`;
@@ -1114,9 +1148,9 @@ function renderComparison(){
   }).sort((x,y) => (y.at+y.bt) - (x.at+x.bt));
 
   h += `<div class="tw" style="margin-bottom:16px"><div style="padding:14px 18px;border-bottom:1px solid var(--bdr);font-weight:800">🏢 مقارنة الفروع</div><div class="scroll">
-    <table><thead><tr><th>الفرع</th><th>شحنات ${A.name}</th><th>شحنات ${B.name}</th><th>تغيير</th><th>%تسليم ${A.name}</th><th>%تسليم ${B.name}</th><th>فرق</th></tr></thead><tbody>`;
+    <table><thead><tr><th>الفرع</th><th>شحنات ${A.name}</th><th>شحنات ${B.name}</th><th>الفرق</th><th>نسبة التغير</th><th>%تسليم ${A.name}</th><th>%تسليم ${B.name}</th><th>فرق التسليم</th><th>نسبة تغير التسليم</th></tr></thead><tbody>`;
   brRows.forEach(r => {
-    h += `<tr><td><strong>${r.n}</strong></td><td>${r.at.toLocaleString()}</td><td>${r.bt.toLocaleString()}</td><td>${diffBadge(r.at,r.bt)}</td><td>${tg(r.adp)}</td><td>${tg(r.bdp)}</td><td>${diffBadge(r.adp,r.bdp)}</td></tr>`;
+    h += `<tr><td><strong>${r.n}</strong></td><td>${r.at.toLocaleString()}</td><td>${r.bt.toLocaleString()}</td><td>${diffBadge(r.at,r.bt)}</td><td>${trendBadge(r.at,r.bt)}</td><td>${tg(r.adp)}</td><td>${tg(r.bdp)}</td><td>${diffBadge(r.adp,r.bdp)}</td><td>${trendBadge(r.adp,r.bdp)}</td></tr>`;
   });
   h += `</tbody></table></div></div>`;
 
@@ -1125,11 +1159,11 @@ function renderComparison(){
     const a = A.stores.find(s=>s.n===n) || {t:0,dp:0};
     const b = B.stores.find(s=>s.n===n) || {t:0,dp:0};
     return { n, at:a.t, bt:b.t, adp:a.dp, bdp:b.dp };
-  }).sort((x,y) => (y.at+y.bt) - (x.at+x.bt)).slice(0,30);
-  h += `<div class="tw"><div style="padding:14px 18px;border-bottom:1px solid var(--bdr);font-weight:800">🏪 مقارنة المتاجر (أهم 30)</div><div class="scroll">
-    <table><thead><tr><th>المتجر</th><th>شحنات ${A.name}</th><th>شحنات ${B.name}</th><th>تغيير</th><th>%تسليم ${A.name}</th><th>%تسليم ${B.name}</th><th>فرق</th></tr></thead><tbody>`;
+  }).sort((x,y) => (y.at+y.bt) - (x.at+x.bt));
+  h += `<div class="tw"><div style="padding:14px 18px;border-bottom:1px solid var(--bdr);font-weight:800">🏪 مقارنة المتاجر (كل المتاجر)</div><div class="scroll">
+    <table><thead><tr><th>المتجر</th><th>شحنات ${A.name}</th><th>شحنات ${B.name}</th><th>الفرق</th><th>نسبة التغير</th><th>%تسليم ${A.name}</th><th>%تسليم ${B.name}</th><th>فرق التسليم</th><th>نسبة تغير التسليم</th></tr></thead><tbody>`;
   stRows.forEach(r => {
-    h += `<tr><td><strong>${r.n}</strong></td><td>${r.at.toLocaleString()}</td><td>${r.bt.toLocaleString()}</td><td>${diffBadge(r.at,r.bt)}</td><td>${tg(r.adp)}</td><td>${tg(r.bdp)}</td><td>${diffBadge(r.adp,r.bdp)}</td></tr>`;
+    h += `<tr><td><strong>${r.n}</strong></td><td>${r.at.toLocaleString()}</td><td>${r.bt.toLocaleString()}</td><td>${diffBadge(r.at,r.bt)}</td><td>${trendBadge(r.at,r.bt)}</td><td>${tg(r.adp)}</td><td>${tg(r.bdp)}</td><td>${diffBadge(r.adp,r.bdp)}</td><td>${trendBadge(r.adp,r.bdp)}</td></tr>`;
   });
   h += `</tbody></table></div></div>`;
   el.innerHTML = h;
@@ -1195,9 +1229,10 @@ function renderArchive(){
 
 // Export functions
 function exportComparisonPDF(){
-  if(DB.periods.length < 2){ toast('❌ تحتاج فترتين', 'err'); return; }
-  const A = DB.periods.find(p => p.id === document.getElementById('cmpA').value);
-  const B = DB.periods.find(p => p.id === document.getElementById('cmpB').value);
+  const allPeriods = getAllPeriodsForComparison();
+  if(allPeriods.length < 2){ toast('❌ تحتاج فترتين', 'err'); return; }
+  const A = allPeriods.find(p => p.id === document.getElementById('cmpA').value);
+  const B = allPeriods.find(p => p.id === document.getElementById('cmpB').value);
   if(!A || !B || A.id === B.id){ toast('❌ اختر فترتين مختلفتين', 'err'); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
@@ -1213,9 +1248,10 @@ function exportComparisonPDF(){
 }
 
 function exportComparisonExcel(){
-  if(DB.periods.length < 2){ toast('❌ تحتاج فترتين', 'err'); return; }
-  const A = DB.periods.find(p => p.id === document.getElementById('cmpA').value);
-  const B = DB.periods.find(p => p.id === document.getElementById('cmpB').value);
+  const allPeriods = getAllPeriodsForComparison();
+  if(allPeriods.length < 2){ toast('❌ تحتاج فترتين', 'err'); return; }
+  const A = allPeriods.find(p => p.id === document.getElementById('cmpA').value);
+  const B = allPeriods.find(p => p.id === document.getElementById('cmpB').value);
   if(!A || !B || A.id === B.id){ toast('❌ اختر فترتين مختلفتين', 'err'); return; }
   const wb = XLSX.utils.book_new();
   const summary = [['المؤشر', A.name, B.name, 'الفرق'],
