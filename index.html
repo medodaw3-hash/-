@@ -129,7 +129,10 @@ thead th{padding:10px 12px;text-align:right;font-size:.68rem;color:var(--t3);fon
 tbody td{padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.02);white-space:nowrap}
 tbody tr:hover{background:rgba(255,255,255,.02)}
 .tw{background:var(--c1);border:1px solid var(--bdr);border-radius:12px;overflow:hidden}
-.tw .scroll{max-height:72vh;overflow-y:auto}
+.tw .scroll{max-height:72vh;overflow:auto;-webkit-overflow-scrolling:touch}
+.tw table{min-width:760px}
+.br-body{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.br-body table{min-width:760px}
 
 .tg{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.68rem;font-weight:700}
 .tg-g{background:var(--grn2);color:var(--grn)}.tg-r{background:var(--red2);color:var(--red)}.tg-a{background:var(--amb2);color:var(--amb)}.tg-b{background:var(--blu2);color:var(--blu)}
@@ -186,6 +189,7 @@ tbody tr:hover{background:rgba(255,255,255,.02)}
 .toast.err{border-color:var(--red);color:var(--red)}
 
 @media(max-width:800px){
+  .app{padding:10px}
   .kpis,.cmp-summary{grid-template-columns:repeat(2,1fr)}
   .charts-row{grid-template-columns:1fr}
   .cmp-picks{grid-template-columns:1fr}
@@ -193,6 +197,14 @@ tbody tr:hover{background:rgba(255,255,255,.02)}
   .br-right{display:none}
   .hdr{padding:16px}
   .hdr-l h1{font-size:1.2rem}
+  .bar,.period-sel{gap:6px}
+  .bar .srch{min-width:100%;width:100%}
+  .bar .sel,.bar .cnt{width:100%}
+  .tw table,.br-body table{min-width:680px}
+  thead th{padding:8px 9px;font-size:.62rem}
+  tbody td{padding:7px 8px;font-size:.72rem}
+  .pb-bar{width:52px}
+  .pb-val{font-size:.68rem;min-width:30px}
 }
 </style>
 </head>
