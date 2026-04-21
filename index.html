@@ -347,6 +347,13 @@ tbody tr:hover{background:rgba(255,255,255,.02)}
 
 <div class="panel" id="p4">
   <div style="background:var(--c1);border:1px solid var(--bdr);border-radius:12px;padding:16px;margin-bottom:14px">
+    <h3 style="font-size:.9rem;margin-bottom:10px">🗂️ الأرشفة التلقائية (كل 5 أسابيع)</h3>
+    <div class="tw"><div class="scroll">
+      <table><thead><tr><th>#</th><th>اسم الملف</th><th>المدى</th><th>عدد الأسابيع</th><th>إجمالي الشحنات</th><th>تاريخ الأرشفة</th><th>تحميل</th></tr></thead>
+      <tbody id="archivePacksTbl"></tbody></table>
+    </div></div>
+  </div>
+  <div style="background:var(--c1);border:1px solid var(--bdr);border-radius:12px;padding:16px;margin-bottom:14px">
     <h3 style="font-size:.9rem;margin-bottom:10px">📈 تطور الأداء عبر الفترات</h3>
     <div class="chart-box" style="margin:0"><canvas id="trendChart"></canvas></div>
   </div>
@@ -377,7 +384,7 @@ tbody tr:hover{background:rgba(255,255,255,.02)}
 
 <script>
 // ==================== STATE ====================
-let DB = { periods: [], activeId: null };
+let DB = { periods: [], activeId: null, archives: [] };
 let CONFIG = { pwd: '', binKey: '', binId: '' };
 let renamingId = null;
 let trendChartInstance = null;
@@ -411,6 +418,116 @@ function emptyState(title, desc){
 }
 function stableSnapshot(obj){
   try{return JSON.stringify(obj||{});}catch{return '';}
+}
+function ensureDBShape(){
+  if(!DB || typeof DB !== 'object') DB = { periods: [], activeId: null, archives: [] };
+  if(!Array.isArray(DB.periods)) DB.periods = [];
+  if(!Array.isArray(DB.archives)) DB.archives = [];
+  if(DB.activeId && !DB.periods.some(p => p.id === DB.activeId)){
+    DB.activeId = DB.periods.length ? DB.periods[DB.periods.length-1].id : null;
+  }
+}
+function safeName(s){ return String(s||'archive').replace(/[^\w\-]+/g,'_').slice(0,90); }
+function buildArchiveReport(periods){
+  const sorted = [...periods].sort((a,b) => new Date(a.date) - new Date(b.date));
+  const totals = sorted.reduce((acc,p)=>{
+    acc.total += Number(p.totals?.total||0);
+    acc.delivered += Number(p.totals?.delivered||0);
+    acc.returned += Number(p.totals?.returned||0);
+    return acc;
+  }, { total:0, delivered:0, returned:0 });
+  const dp = totals.total ? +(totals.delivered / totals.total * 100).toFixed(1) : 0;
+  const rp = totals.total ? +(totals.returned / totals.total * 100).toFixed(1) : 0;
+  return {
+    createdAt: new Date().toISOString(),
+    from: sorted[0]?.date || '',
+    to: sorted[sorted.length-1]?.date || '',
+    weeks: sorted.length,
+    totals: { ...totals, dp, rp },
+    periods: sorted.map((p,i)=>({
+      idx:i+1,
+      id:p.id,
+      name:p.name,
+      date:p.date,
+      total:Number(p.totals?.total||0),
+      delivered:Number(p.totals?.delivered||0),
+      returned:Number(p.totals?.returned||0),
+      dp:Number(p.totals?.dp||0),
+      rp:Number(p.totals?.rp||0),
+      branches:Number(p.branchesCount||0),
+      captains:Number(p.captainsCount||0),
+      stores:Number(p.storesCount||0)
+    })),
+    rawPeriods: sorted
+  };
+}
+function downloadArchiveJson(pack){
+  const blob = new Blob([JSON.stringify(pack.report, null, 2)], { type:'application/json;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${safeName(pack.label)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(a.href);
+}
+function downloadArchiveExcel(pack){
+  const wb = XLSX.utils.book_new();
+  const s = pack.report.totals;
+  const summary = [
+    ['المجموعة', pack.label],
+    ['من', pack.report.from],
+    ['إلى', pack.report.to],
+    ['عدد الأسابيع', pack.report.weeks],
+    ['إجمالي الشحنات', s.total],
+    ['إجمالي التسليم', s.delivered],
+    ['إجمالي المرتجع', s.returned],
+    ['% التسليم', s.dp],
+    ['% المرتجع', s.rp]
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'ملخص');
+  const rows = [
+    ['#','اسم الفترة','التاريخ','إجمالي','مسلّم','مرتجع','% تسليم','% مرتجع','فروع','مناديب','متاجر'],
+    ...pack.report.periods.map(p => [p.idx,p.name,p.date,p.total,p.delivered,p.returned,p.dp,p.rp,p.branches,p.captains,p.stores])
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'الأسابيع');
+  XLSX.writeFile(wb, `${safeName(pack.label)}.xlsx`);
+}
+function getArchivePack(id){ return (DB.archives||[]).find(a => a.id === id); }
+function downloadArchiveJsonById(id){
+  const p = getArchivePack(id); if(!p){ toast('❌ ملف الأرشيف غير موجود', 'err'); return; }
+  downloadArchiveJson(p);
+}
+function downloadArchiveExcelById(id){
+  const p = getArchivePack(id); if(!p){ toast('❌ ملف الأرشيف غير موجود', 'err'); return; }
+  downloadArchiveExcel(p);
+}
+function autoArchiveFiveWeeks(){
+  ensureDBShape();
+  let batches = 0, weeks = 0;
+  while(DB.periods.length >= 5){
+    const sorted = [...DB.periods].sort((a,b) => (a.uploadedAt||0) - (b.uploadedAt||0));
+    const firstFive = sorted.slice(0,5);
+    const ids = new Set(firstFive.map(p => p.id));
+    const report = buildArchiveReport(firstFive);
+    const label = `archive_${report.from}_to_${report.to}_weeks_${firstFive.length}`;
+    const pack = {
+      id: 'a_' + Date.now() + '_' + batches,
+      label,
+      from: report.from,
+      to: report.to,
+      createdAt: report.createdAt,
+      report
+    };
+    DB.archives.push(pack);
+    downloadArchiveJson(pack);
+    downloadArchiveExcel(pack);
+    DB.periods = DB.periods.filter(p => !ids.has(p.id));
+    batches++;
+    weeks += firstFive.length;
+  }
+  if(batches > 0){
+    DB.activeId = DB.periods.length ? DB.periods[DB.periods.length-1].id : null;
+  }
+  return { batches, weeks };
 }
 
 // ==================== CONFIG & AUTH ====================
@@ -544,6 +661,7 @@ async function syncFromCloud(){
     const data = await r.json();
     if(data.record && data.record.periods){
       DB = data.record;
+      ensureDBShape();
       lastCloudSnapshot = stableSnapshot(DB);
       saveLocalDB();
       setSyncStatus('ok', '✅ متزامن');
@@ -584,6 +702,7 @@ async function syncToCloud(){
       if(!latest.ok) throw new Error('فشل فحص آخر نسخة: ' + latest.status);
       const latestData = await latest.json();
       const remoteRecord = latestData?.record || {};
+      if(!Array.isArray(remoteRecord.archives)) remoteRecord.archives = [];
       const remoteSnapshot = stableSnapshot(remoteRecord);
       if(lastCloudSnapshot && remoteSnapshot && remoteSnapshot !== lastCloudSnapshot){
         localStorage.setItem('crm_conflict_backup_v1', JSON.stringify({
@@ -639,6 +758,7 @@ function saveLocalDB(){ localStorage.setItem('crm_db_v2', JSON.stringify(DB)); }
 function loadLocalDB(){
   const s = localStorage.getItem('crm_db_v2');
   if(s) { try { DB = JSON.parse(s); } catch(e){} }
+  ensureDBShape();
 }
 
 // ==================== EXCEL PROCESSING ====================
@@ -731,10 +851,15 @@ function handleFile(f){
       period.name = name; period.date = date;
       DB.periods.push(period);
       DB.activeId = period.id;
+      const archived = autoArchiveFiveWeeks();
       saveLocalDB();
       refreshAll();
       scheduleSync();
-      toast(`✅ تمت إضافة "${name}" — ${period.totals.total.toLocaleString()} شحنة`);
+      if(archived.batches > 0){
+        toast(`✅ تمت الأرشفة تلقائيًا: ${archived.weeks} أسابيع. تم تنزيل ملفات الأرشيف وحذفها من المنظومة.`);
+      }else{
+        toast(`✅ تمت إضافة "${name}" — ${period.totals.total.toLocaleString()} شحنة`);
+      }
     } catch(err){ toast('❌ ' + err.message, 'err'); }
   };
   r.readAsArrayBuffer(f);
@@ -961,6 +1086,26 @@ document.getElementById('cmpB').onchange = renderComparison;
 
 function renderArchive(){
   const tbl = document.getElementById('archiveTbl');
+  const packsTbl = document.getElementById('archivePacksTbl');
+  if(packsTbl){
+    if((DB.archives||[]).length === 0){
+      packsTbl.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--t3)">لا توجد أرشفة تلقائية بعد</td></tr>`;
+    }else{
+      const packs = [...DB.archives].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+      packsTbl.innerHTML = packs.map((p,i)=>`<tr>
+        <td>${i+1}</td>
+        <td><strong>${p.label}</strong></td>
+        <td>${p.from} → ${p.to}</td>
+        <td>${p.report?.weeks||0}</td>
+        <td>${Number(p.report?.totals?.total||0).toLocaleString()}</td>
+        <td style="color:var(--t3)">${new Date(p.createdAt).toLocaleString()}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="downloadArchiveJsonById('${p.id}')">JSON</button>
+          <button class="btn btn-ghost btn-sm" onclick="downloadArchiveExcelById('${p.id}')">Excel</button>
+        </td>
+      </tr>`).join('');
+    }
+  }
   if(DB.periods.length === 0){
     tbl.innerHTML = `<tr><td colspan="10">${emptyState('لا توجد فترات','ارفع أول ملف Excel')}</td></tr>`;
     if(trendChartInstance){ trendChartInstance.destroy(); trendChartInstance = null; } return;
