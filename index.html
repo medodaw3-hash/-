@@ -21,6 +21,11 @@
   --blu:#3b82f6;--blu2:rgba(59,130,246,.12);
   --pur:#a855f7;--pur2:rgba(168,85,247,.12);
 }
+body.light{
+  --bg:#f3f6fb;--c1:#ffffff;--c2:#eef3fb;--c3:#e4ebf8;--c4:#d8e3f5;
+  --bdr:#d6e1f2;--bdr2:#bfd2ed;
+  --t1:#1b2a44;--t2:#50658a;--t3:#7c8daa;
+}
 body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--t1);line-height:1.5;min-height:100vh}
 body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle at 20% 0%,rgba(59,130,246,.08),transparent 40%),radial-gradient(circle at 80% 100%,rgba(168,85,247,.06),transparent 40%);z-index:0;pointer-events:none}
 
@@ -45,6 +50,18 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle
 /* ===== MAIN APP ===== */
 .app{position:relative;z-index:1;max-width:1500px;margin:0 auto;padding:16px;display:none}
 .app.on{display:block}
+.app-shell{display:grid;grid-template-columns:280px 1fr;gap:12px;align-items:start}
+.right-sidebar{background:var(--c1);border:1px solid var(--bdr);border-radius:14px;padding:10px;position:sticky;top:10px}
+.snav-title{font-size:.74rem;color:var(--t3);font-weight:800;margin:4px 6px 8px}
+.snav-item{width:100%;text-align:right;padding:10px 12px;border-radius:10px;border:1px solid var(--bdr);background:var(--c2);color:var(--t2);font-weight:800;cursor:pointer;margin-bottom:6px}
+.snav-item.on{background:linear-gradient(135deg,#2563eb,#3b82f6);border-color:transparent;color:#fff}
+.snav-weeks{margin-top:8px;border-top:1px dashed var(--bdr);padding-top:8px;max-height:44vh;overflow:auto}
+.week-item{padding:8px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent;color:var(--t2);font-size:.78rem}
+.week-item:hover{background:var(--c2);border-color:var(--bdr)}
+.week-item.on{background:var(--blu2);border-color:rgba(59,130,246,.35);color:var(--blu);font-weight:800}
+.week-date{font-size:.68rem;color:var(--t3)}
+.app-main .tabs{display:none}
+.sidebar-toggle{display:none}
 
 .hdr{background:linear-gradient(135deg,var(--c1),var(--c2));border:1px solid var(--bdr);border-radius:16px;padding:22px 28px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
 .hdr-l h1{font-size:1.5rem;font-weight:900;background:linear-gradient(to left,#60a5fa,#a78bfa,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
@@ -190,6 +207,13 @@ tbody tr:hover{background:rgba(255,255,255,.02)}
 
 @media(max-width:800px){
   .app{padding:10px}
+  .app-shell{grid-template-columns:1fr}
+  .sidebar-toggle{display:inline-flex}
+  .right-sidebar{position:fixed;top:0;right:0;bottom:0;width:min(86vw,330px);z-index:2200;transform:translateX(102%);transition:.2s;overflow:auto;border-radius:0}
+  body.sidebar-open .right-sidebar{transform:translateX(0)}
+  body.sidebar-open{overflow:hidden}
+  .sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2100}
+  body.sidebar-open .sidebar-backdrop{display:block}
   .kpis,.cmp-summary{grid-template-columns:repeat(2,1fr)}
   .charts-row{grid-template-columns:1fr}
   .cmp-picks{grid-template-columns:1fr}
@@ -264,11 +288,29 @@ tbody tr:hover{background:rgba(255,255,255,.02)}
   <div class="hdr-r">
     <span class="sync-status" id="syncStatus"><span class="sync-dot"></span><span id="syncText">غير متزامن</span></span>
     <span class="periods-count" id="periodsCount">0 فترة</span>
+    <button class="btn btn-ghost btn-sm" onclick="toggleTheme()">🌓</button>
+    <button class="btn btn-ghost btn-sm sidebar-toggle" onclick="toggleSidebar()">☰ الأقسام</button>
     <button class="btn btn-ghost btn-sm" onclick="syncNow()">🔄 تحديث</button>
     <button class="btn btn-ghost btn-sm" onclick="showSetup()">⚙️</button>
     <button class="btn btn-ghost btn-sm" onclick="logout()">🚪 خروج</button>
   </div>
 </div>
+
+<div class="sidebar-backdrop" onclick="closeSidebar()"></div>
+<div class="app-shell">
+<aside class="right-sidebar" id="rightSidebar">
+  <div class="snav-title">الأقسام الرئيسية</div>
+  <button class="snav-item on" data-tabbtn="0" onclick="showTab(0)">📈 لوحة الأداء</button>
+  <button class="snav-item" data-tabbtn="1" onclick="showTab(1)">🏢 الفروع والمناديب</button>
+  <button class="snav-item" data-tabbtn="2" onclick="showTab(2)">🏪 المتاجر</button>
+  <button class="snav-item" data-tabbtn="3" onclick="showTab(3)">🔄 المقارنة</button>
+  <button class="snav-item" data-tabbtn="4" onclick="showTab(4)">📅 الأرشيف</button>
+  <div class="snav-weeks">
+    <div class="snav-title">الأسابيع</div>
+    <div id="weeksNav"></div>
+  </div>
+</aside>
+<main class="app-main">
 
 <div class="upload-zone" id="uploadZone">
   <div class="up-icon">📤</div>
@@ -363,6 +405,8 @@ tbody tr:hover{background:rgba(255,255,255,.02)}
   </div></div>
 </div>
 
+</div>
+</main>
 </div>
 
 <!-- Rename Modal -->
@@ -499,6 +543,19 @@ function downloadArchiveJsonById(id){
 function downloadArchiveExcelById(id){
   const p = getArchivePack(id); if(!p){ toast('❌ ملف الأرشيف غير موجود', 'err'); return; }
   downloadArchiveExcel(p);
+}
+function renderWeeksSidebar(){
+  const el = document.getElementById('weeksNav');
+  if(!el) return;
+  const sorted = [...(DB.periods||[])].sort((a,b)=>(a.uploadedAt||0)-(b.uploadedAt||0));
+  if(!sorted.length){
+    el.innerHTML = `<div class="week-item" style="cursor:default;color:var(--t3)">لا توجد أسابيع مرفوعة بعد</div>`;
+    return;
+  }
+  el.innerHTML = sorted.map((p,i)=>`<div class="week-item ${p.id===DB.activeId?'on':''}" onclick="selectPeriod('${p.id}')">
+    <div>📁 الأسبوع ${i+1}: ${p.name}</div>
+    <div class="week-date">${p.date}</div>
+  </div>`).join('');
 }
 function autoArchiveFiveWeeks(){
   ensureDBShape();
@@ -753,6 +810,12 @@ function syncNow(){
   }
   syncFromCloud();
 }
+function closeSidebar(){ document.body.classList.remove('sidebar-open'); }
+function toggleSidebar(){ document.body.classList.toggle('sidebar-open'); }
+function toggleTheme(){
+  document.body.classList.toggle('light');
+  localStorage.setItem('crm_theme_v1', document.body.classList.contains('light') ? 'light' : 'dark');
+}
 
 function saveLocalDB(){ localStorage.setItem('crm_db_v2', JSON.stringify(DB)); }
 function loadLocalDB(){
@@ -870,7 +933,7 @@ function getActive(){ return DB.periods.find(p => p.id === DB.activeId) || DB.pe
 
 function renderPeriodSelector(){
   const el = document.getElementById('periodSel');
-  if(DB.periods.length === 0){ el.innerHTML = '<span class="period-lbl">لم يتم رفع أي ملف بعد</span>'; return; }
+  if(DB.periods.length === 0){ el.innerHTML = '<span class="period-lbl">لم يتم رفع أي ملف بعد</span>'; renderWeeksSidebar(); return; }
   let h = '<span class="period-lbl">📅 الفترة:</span>';
   DB.periods.forEach(p => {
     const a = p.id === DB.activeId;
@@ -878,9 +941,10 @@ function renderPeriodSelector(){
   });
   el.innerHTML = h;
   document.getElementById('periodsCount').textContent = `${DB.periods.length} فترة`;
+  renderWeeksSidebar();
 }
 
-function selectPeriod(id){ DB.activeId = id; saveLocalDB(); scheduleSync(); refreshViews(); }
+function selectPeriod(id){ DB.activeId = id; saveLocalDB(); scheduleSync(); refreshViews(); renderWeeksSidebar(); closeSidebar(); }
 
 function deletePeriod(id){
   const p = DB.periods.find(x => x.id === id);
@@ -1167,6 +1231,8 @@ function showTab(i){
   activeTab = i;
   document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('on', j===i));
   document.querySelectorAll('.panel').forEach((p,j) => p.classList.toggle('on', j===i));
+  document.querySelectorAll('[data-tabbtn]').forEach(btn => btn.classList.toggle('on', Number(btn.dataset.tabbtn)===i));
+  closeSidebar();
   refreshViews();
 }
 
@@ -1182,6 +1248,7 @@ function refreshAll(){ renderPeriodSelector(); refreshViews(); }
 // ==================== INIT ====================
 loadConfig();
 loadLocalDB();
+if(localStorage.getItem('crm_theme_v1') === 'light') document.body.classList.add('light');
 if(sessionStorage.getItem('crm_auth') === '1' && CONFIG.pwd){
   enterApp();
 }
